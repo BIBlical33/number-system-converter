@@ -8,8 +8,7 @@
 #ifndef INCLUDE_NUMBER_SYSTEM_CONVERTER_H
 #define INCLUDE_NUMBER_SYSTEM_CONVERTER_H
 
-#include <QApplication>
-#include <QClipboard>
+#include <QCloseEvent>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -18,26 +17,23 @@
 #include <QPushButton>
 #include <QString>
 
+#include "include/config_service.h"
+#include "include/theme_manager.h"
+
 namespace number_system_converter {
 
-class NumberSystemConverter : public QMainWindow {
+class Application : public QMainWindow {
   Q_OBJECT
 
  public:
-  explicit NumberSystemConverter(QWidget *parent = nullptr);
+  explicit Application(QWidget *parent = nullptr);
 
-  ~NumberSystemConverter() override = default;
+  ~Application() override = default;
 
   // Sets the app's dark theme
-  void ApplyDarkTheme();
-
-  // Sets the app's light theme
-  void ApplyLightTheme();
+  void ApplyTheme(const QString &theme_name);
 
  private:
-  // Generates a result when all fields are filled in
-  void GenerateResult();
-
   // Sets a application menu
   void CreateMenuBar();
 
@@ -53,11 +49,17 @@ class NumberSystemConverter : public QMainWindow {
   // Sets a second layout
   void SetUpToBaseLayout(QVBoxLayout *base_layout);
 
-  bool is_results_in_lowercase_ = false;
+  // Generates a result when all fields are filled in
+  void GenerateResult();
 
-  const QIcon kCopyIconWhite{":/resources/copy-icon-white.svg"},
-      kCopyIconBlack{":/resources/copy-icon-black.svg"},
-      kCopyIconBlue{":/resources/copy-icon-blue.svg"};
+  // Activates when user closes the app
+  void closeEvent(QCloseEvent *event) override;
+
+  ConfigService config_service_{"BIBlical", "Number System Converter"};
+
+  Config config_;
+
+  ThemeManager theme_manager_;
 
   QPushButton *from_base_button_{nullptr};
 

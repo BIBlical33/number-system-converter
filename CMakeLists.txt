@@ -2,11 +2,17 @@ cmake_minimum_required(VERSION 3.20)
 
 project(number_system_converter VERSION 0.0.1 LANGUAGES CXX)
 
-cmake_policy(VERSION 3.20)
-
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    if(MSVC)
+        add_compile_options(/O2)
+    else()
+        add_compile_options(-O3)
+    endif()
+endif()
 
 if (MSVC)
     add_compile_options(/W4 /Zi)
@@ -20,8 +26,11 @@ qt_standard_project_setup()
 
 qt_add_executable(number_system_converter
     src/main.cc
-    src/number_system_converter.cc
-    include/number_system_converter.h
+    src/application.cc
+    src/theme_manager.cc
+    include/application.h
+    include/theme_manager.h
+    include/config_service.h
 )
 target_include_directories(number_system_converter PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(number_system_converter PRIVATE Qt6::Widgets Qt6::Core Qt6::Gui)
