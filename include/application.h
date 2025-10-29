@@ -5,8 +5,8 @@
 // License: The MIT License
 // See: https://opensource.org/license/mit
 
-#ifndef INCLUDE_NUMBER_SYSTEM_CONVERTER_H
-#define INCLUDE_NUMBER_SYSTEM_CONVERTER_H
+#ifndef INCLUDE_APPLICATION_H_
+#define INCLUDE_APPLICATION_H_
 
 #include <QCloseEvent>
 #include <QFrame>
@@ -14,10 +14,10 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QMainWindow>
+#include <QSettings>
 #include <QPushButton>
 #include <QString>
 
-#include "include/config_service.h"
 #include "include/theme_manager.h"
 
 namespace number_system_converter {
@@ -30,7 +30,6 @@ class Application : public QMainWindow {
 
   ~Application() override = default;
 
-  // Sets the app's dark theme
   void ApplyTheme(const QString &theme_name);
 
  private:
@@ -44,20 +43,15 @@ class Application : public QMainWindow {
   void SetUpHelpMenu();
 
   // Sets a fist layout
-  void SetUpFromBaseLayout(QVBoxLayout *base_layout);
+  void CreateFromBaseSection(QVBoxLayout *base_layout);
 
   // Sets a second layout
-  void SetUpToBaseLayout(QVBoxLayout *base_layout);
+  void CreateToBaseSection(QVBoxLayout *base_layout);
 
-  // Generates a result when all fields are filled in
-  void GenerateResult();
+// Calls a result and displays it
+  void DisplayResult();
 
-  // Activates when user closes the app
-  void closeEvent(QCloseEvent *event) override;
-
-  ConfigService config_service_{"BIBlical", "Number System Converter"};
-
-  Config config_;
+  QSettings settings_{"BIBlical", "Number System Converter"};
 
   ThemeManager theme_manager_;
 
@@ -82,4 +76,4 @@ class Application : public QMainWindow {
 
 }  // namespace number_system_converter
 
-#endif  // INCLUDE_NUMBER_SYSTEM_CONVERTER_H
+#endif  // INCLUDE_APPLICATION_H_

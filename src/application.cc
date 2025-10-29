@@ -25,42 +25,67 @@
 #include <QString>
 #include <QVBoxLayout>
 #include <QVariant>
+#include <limits>
 
 namespace {
 
-struct ConvertNumberResult {
-  QString result;
-  bool is_number_correct;
+struct ConvertNumberResult final {
+  QString text, color;
 };
 
-// Converts the number to a new base
-ConvertNumberResult ConvertNumber(const QString &number, int old_base,
-                                  int new_base) {
-  if (old_base < 2 or old_base > 36 or new_base < 2 or new_base > 36)
-    return {"", false};
+ConvertNumberResult GenerateResult(const QString &number,
+                                   const QString &old_base_text,
+                                   const QString &new_base_text) {
+  // If the user hasn't initialized all arguments, don't display the result
+  if (number.isEmpty() or old_base_text.isEmpty() or new_base_text.isEmpty())
+    return {"", "#1967D2"};
 
-  bool is_number_correct;
-  int64_t dec = number.toLongLong(&is_number_correct, old_base);
-  if (not is_number_correct) return {"", false};
+  // Handling of possible UB
+  bool is_source_base_correct = false;
+  int old_base;
+  if (old_base_text.size() < 3)
+    old_base = old_base_text.toLongLong(&is_source_base_correct);
 
-  return {QString::number(dec, new_base).toUpper(), true};
+  if (not is_source_base_correct or old_base < 2 or old_base > 36)
+    return {"Error! Unsupported number system: " + old_base_text, "red"};
+
+  int new_base;
+  bool is_new_base_correct = false;
+  if (new_base_text.size() < 3)
+    new_base = new_base_text.toLongLong(&is_new_base_correct);
+
+  if (not is_new_base_correct or new_base < 2 or new_base > 36)
+    return {"Error! Unsupported number system: " + new_base_text, "red"};
+
+  qint64 result = 0, limit = std::numeric_limits<qint64>::max() / old_base;
+
+  for (QChar c : number.toUpper()) {
+    int digit = QString("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ").indexOf(c);
+    if (digit < 0 || digit >= old_base)
+      return {"Error! Incorrect number", "red"};
+
+    if (result > limit) return {"Error! Unsupported number", "red"};
+
+    qint64 next = result * old_base + digit;
+    if (next < result) return {"Error! Unsupported number", "red"};
+
+    result = next;
+  }
+
+  return {QString::number(result, new_base), "#1967D2"};
 }
 
 }  // namespace
 
 namespace number_system_converter {
 
-Application::Application(QWidget *parent)
-    : QMainWindow(parent) {
-  config_service_.LoadConfig(config_);
-
+Application::Application(QWidget *parent) : QMainWindow(parent) {
   CreateMenuBar();
 
   copy_input_button_ = new QPushButton(this);
   copy_result_button_ = new QPushButton(this);
 
-  assert(theme_manager_.IsValidTheme(config_.current_theme_name));
-  ApplyTheme(config_.current_theme_name);
+  ApplyTheme(settings_.value("theme", "Dark").toString());
 
   QWidget *main_widget = new QWidget(this);
   setCentralWidget(main_widget);
@@ -70,7 +95,7 @@ Application::Application(QWidget *parent)
   main_layout->setSpacing(15);
   main_layout->addStretch();
 
-  SetUpFromBaseLayout(main_layout);
+  CreateFromBaseSection(main_layout);
 
   input_number_edit_ = new QLineEdit();
   input_number_edit_->setPlaceholderText("Enter a number");
@@ -78,14 +103,14 @@ Application::Application(QWidget *parent)
   main_layout->addWidget(input_number_edit_);
 
   connect(input_number_edit_, &QLineEdit::textChanged, this,
-          &Application::GenerateResult);
+          &Application::DisplayResult);
 
   separator_ = new QFrame();
   separator_->setFrameShape(QFrame::HLine);
   separator_->setStyleSheet("background-color: #1967D2;");
   main_layout->addWidget(separator_);
 
-  SetUpToBaseLayout(main_layout);
+  CreateToBaseSection(main_layout);
 
   result_label_ = new QLabel("");
 
@@ -93,11 +118,8 @@ Application::Application(QWidget *parent)
   main_layout->addStretch();
 }
 
-// Sets a app's theme
 void Application::ApplyTheme(const QString &theme_name) {
-  if (not theme_manager_.IsValidTheme(theme_name)) return;
-
-  config_.current_theme_name = theme_name;
+  settings_.setValue("theme", theme_name);
 
   const AppTheme &theme = theme_manager_.GetTheme(theme_name);
 
@@ -136,7 +158,8 @@ void Application::SetUpToolsMenu() {
 
     theme_group->addAction(action);
 
-    if (action->text() == config_.current_theme_name) action->setChecked(true);
+    if (action->text() == settings_.value("theme", "Dark").toString())
+      action->setChecked(true);
 
     theme_menu->addAction(action);
 
@@ -155,8 +178,9 @@ void Application::SetUpToolsMenu() {
   lowercase_action->setCheckable(true);
   uppercase_action->setCheckable(true);
 
-  config_.is_results_in_lowercase ? lowercase_action->setChecked(true)
-                           : uppercase_action->setChecked(true);
+  settings_.value("lowercase", "1").toBool()
+      ? lowercase_action->setChecked(true)
+      : uppercase_action->setChecked(true);
 
   letter_case_group->addAction(lowercase_action);
   letter_case_group->addAction(uppercase_action);
@@ -165,12 +189,12 @@ void Application::SetUpToolsMenu() {
   letter_case_menu->addAction(uppercase_action);
 
   connect(lowercase_action, &QAction::triggered, this, [this]() {
-    config_.is_results_in_lowercase = true;
-    GenerateResult();
+    settings_.setValue("lowercase", "1");
+    DisplayResult();
   });
   connect(uppercase_action, &QAction::triggered, this, [this]() {
-    config_.is_results_in_lowercase = false;
-    GenerateResult();
+    settings_.setValue("lowercase", "0");
+    DisplayResult();
   });
 }
 
@@ -188,7 +212,7 @@ void Application::SetUpHelpMenu() {
 }
 
 // Sets a fist layout
-void Application::SetUpFromBaseLayout(QVBoxLayout *base_layout) {
+void Application::CreateFromBaseSection(QVBoxLayout *base_layout) {
   QHBoxLayout *from_base_layout = new QHBoxLayout();
   from_base_layout->setSpacing(0);
 
@@ -197,7 +221,7 @@ void Application::SetUpFromBaseLayout(QVBoxLayout *base_layout) {
   from_base_edit_ = new QLineEdit();
 
   connect(from_base_edit_, &QLineEdit::textChanged, this,
-          &Application::GenerateResult);
+          &Application::DisplayResult);
   connect(from_base_button_, &QPushButton::clicked, this,
           [this]() { from_base_edit_->setFocus(); });
 
@@ -213,7 +237,7 @@ void Application::SetUpFromBaseLayout(QVBoxLayout *base_layout) {
 }
 
 // Sets a second layout
-void Application::SetUpToBaseLayout(QVBoxLayout *base_layout) {
+void Application::CreateToBaseSection(QVBoxLayout *base_layout) {
   QHBoxLayout *to_base_layout = new QHBoxLayout();
   to_base_layout->setSpacing(0);
 
@@ -224,7 +248,7 @@ void Application::SetUpToBaseLayout(QVBoxLayout *base_layout) {
   to_base_edit_->setStyleSheet("color: #1967D2;");
 
   connect(to_base_edit_, &QLineEdit::textChanged, this,
-          &Application::GenerateResult);
+          &Application::DisplayResult);
   connect(to_base_button_, &QPushButton::clicked, this,
           [this]() { to_base_edit_->setFocus(); });
 
@@ -241,55 +265,21 @@ void Application::SetUpToBaseLayout(QVBoxLayout *base_layout) {
   base_layout->addLayout(to_base_layout);
 }
 
-// Generates a result when all fields are filled in
-void Application::GenerateResult() {
-  auto ShowError = [&](const QString &message) {
-    result_label_->setStyleSheet("color: red; font-size: 20px;");
-    result_label_->setText(message);
-  };
-
+// Calls a result and displays it
+void Application::DisplayResult() {
   QString number = input_number_edit_->text(),
           source_base_text = from_base_edit_->text(),
           new_base_text = to_base_edit_->text();
 
-  // If the user hasn't initialized all arguments, don't display the result
-  if (number.isEmpty() or source_base_text.isEmpty() or
-      new_base_text.isEmpty()) {
-    result_label_->setText("");
-    return;
-  }
+  ConvertNumberResult result =
+      GenerateResult(number, source_base_text, new_base_text);
+  result_label_->setStyleSheet(
+      QString("color: %1; font-size: 20px;").arg(result.color));
 
-  bool is_source_base_correct, is_new_base_correct;
-  int source_base = from_base_edit_->text().toLongLong(&is_source_base_correct),
-      new_base = to_base_edit_->text().toLongLong(&is_new_base_correct);
-
-  if (not is_source_base_correct or source_base < 2 or source_base > 36) {
-    ShowError("Error! Unsupported number system: " + source_base_text);
-    return;
-  } else if (not is_new_base_correct or new_base < 2 or new_base > 36) {
-    ShowError("Error! Unsupported number system: " + new_base_text);
-    return;
-  }
-
-  result_label_->setStyleSheet("color: #1967D2; font-size: 20px;");
-  ConvertNumberResult result = ConvertNumber(number, source_base, new_base);
-
-  if (not result.is_number_correct) {
-    ShowError("Error! Number mismatch with the entered base or not supported");
-    return;
-  }
-
-  if (config_.is_results_in_lowercase)
-    result_label_->setText(result.result.toLower());
+  if (settings_.value("lowercase", "1").toBool())
+    result_label_->setText(result.text.toLower());
   else
-    result_label_->setText(result.result);
-}
-
-// Activates when user closes the app
-void Application::closeEvent(QCloseEvent *event) {
-  config_service_.SaveConfig(config_);
-
-  QMainWindow::closeEvent(event);
+    result_label_->setText(result.text);
 }
 
 }  // namespace number_system_converter

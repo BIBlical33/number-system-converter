@@ -16,13 +16,13 @@
 
 namespace number_system_converter {
 
-struct AppTheme {
+struct AppTheme final {
   QString main_style_sheet;
   QString hover_style;
   QIcon copy_icon;
 };
 
-class ThemeManager {
+class ThemeManager final {
  public:
   ThemeManager();
 
