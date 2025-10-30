@@ -12,7 +12,7 @@ Number System Converter is a lightweight desktop application designed to convert
 
 ## Preview
 
-![](./resources/Show up.png)
+![""](./resources/show-up.png)
 
 > [!NOTE]
 > The application is under development. 
