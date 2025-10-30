@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 [![CMake](https://img.shields.io/badge/CMake-3.20+-blue.svg)](https://cmake.org)
 [![C++20](https://img.shields.io/badge/C++-20-blue.svg)](https://en.cppreference.com/w/cpp/20)
-[![Qt](https://img.shields.io/badge/Qt-6.6%2B-41CD52.svg)](https://www.qt.io)
+[![Qt](https://img.shields.io/badge/Qt-6.2%2B-41CD52.svg)](https://www.qt.io)
 
 ## Overview
 
