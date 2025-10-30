@@ -279,7 +279,7 @@ void Application::DisplayResult() {
   if (settings_.value("lowercase", "1").toBool())
     result_label_->setText(result.text.toLower());
   else
-    result_label_->setText(result.text);
+    result_label_->setText(result.text.toUpper());
 }
 
 }  // namespace number_system_converter

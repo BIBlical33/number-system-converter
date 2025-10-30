@@ -1,5 +1,20 @@
 cmake_minimum_required(VERSION 3.20)
 
+function(find_make_appx result)
+  find_windows_sdk(BIN sdk_bin_dir)
+
+  find_program(
+    make_appx
+    NAMES MakeAppx
+    PATHS "${sdk_bin_dir}"
+    REQUIRED
+  )
+
+  set(${result} "${make_appx}")
+
+  return(PROPAGATE ${result})
+endfunction()
+
 project(number_system_converter VERSION 0.0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
