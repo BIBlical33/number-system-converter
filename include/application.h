@@ -48,7 +48,7 @@ class Application : public QMainWindow {
   // Sets a second layout
   void CreateToBaseSection(QVBoxLayout *base_layout);
 
-// Calls a result and displays it
+  // Calls a result and displays it
   void DisplayResult();
 
   QSettings settings_{"BIBlical", "Number System Converter"};

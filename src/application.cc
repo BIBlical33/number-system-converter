@@ -40,36 +40,33 @@ ConvertNumberResult GenerateResult(const QString &number,
   if (number.isEmpty() or old_base_text.isEmpty() or new_base_text.isEmpty())
     return {"", "#1967D2"};
 
-  // Handling of possible UB
-  bool is_source_base_correct = false;
-  int old_base;
-  if (old_base_text.size() < 3)
-    old_base = old_base_text.toLongLong(&is_source_base_correct);
+  bool is_source_base_correct = false, is_new_base_correct = false;
+  int old_base, new_base;
+  if (old_base_text.size() < 3 && new_base_text.size() < 3) {
+    old_base = old_base_text.toInt(&is_source_base_correct);
+    new_base = new_base_text.toInt(&is_new_base_correct);
+  }
 
   if (not is_source_base_correct or old_base < 2 or old_base > 36)
     return {"Error! Unsupported number system: " + old_base_text, "red"};
-
-  int new_base;
-  bool is_new_base_correct = false;
-  if (new_base_text.size() < 3)
-    new_base = new_base_text.toLongLong(&is_new_base_correct);
-
-  if (not is_new_base_correct or new_base < 2 or new_base > 36)
+  else if (not is_new_base_correct or new_base < 2 or new_base > 36)
     return {"Error! Unsupported number system: " + new_base_text, "red"};
 
-  qint64 result = 0, limit = std::numeric_limits<qint64>::max() / old_base;
-
+  static constexpr qint64 kMax = std::numeric_limits<qint64>::max();
+  const qint64 kLimit = kMax / old_base;
+  qint64 result = 0;
   for (QChar c : number.toUpper()) {
-    int digit = QString("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ").indexOf(c);
+    static const QString kValidDigits("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+    int digit = kValidDigits.indexOf(c);
     if (digit < 0 || digit >= old_base)
       return {"Error! Incorrect number", "red"};
 
-    if (result > limit) return {"Error! Unsupported number", "red"};
+    if (result > kLimit) return {"Error! Unsupported number", "red"};
 
-    qint64 next = result * old_base + digit;
-    if (next < result) return {"Error! Unsupported number", "red"};
+    qint64 next_mult = result * old_base;
+    if (next_mult > kMax - digit) return {"Error! Unsupported number", "red"};
 
-    result = next;
+    result = next_mult + digit;
   }
 
   return {QString::number(result, new_base), "#1967D2"};
@@ -82,8 +79,8 @@ namespace number_system_converter {
 Application::Application(QWidget *parent) : QMainWindow(parent) {
   CreateMenuBar();
 
-  copy_input_button_ = new QPushButton(this);
-  copy_result_button_ = new QPushButton(this);
+  copy_input_button_ = new QPushButton();
+  copy_result_button_ = new QPushButton();
 
   ApplyTheme(settings_.value("theme", "Dark").toString());
 
@@ -119,23 +116,22 @@ Application::Application(QWidget *parent) : QMainWindow(parent) {
 }
 
 void Application::ApplyTheme(const QString &theme_name) {
-  settings_.setValue("theme", theme_name);
-
   const AppTheme &theme = theme_manager_.GetTheme(theme_name);
+
+  settings_.setValue("theme", theme_name);
 
   setStyleSheet(theme.main_style_sheet);
 
   copy_input_button_->setIcon(theme.copy_icon);
 
   QString hoverStyle = theme.hover_style;
-
   copy_input_button_->setStyleSheet(hoverStyle);
   copy_result_button_->setStyleSheet(hoverStyle);
 }
 
 // Sets a application menu
 void Application::CreateMenuBar() {
-  QMenuBar *menu_bar = new QMenuBar(this);
+  QMenuBar *menu_bar = new QMenuBar;
   setMenuBar(menu_bar);
 
   SetUpToolsMenu();
@@ -149,14 +145,12 @@ void Application::SetUpToolsMenu() {
 
   QMenu *theme_menu = tools_menu->addMenu("Color Theme");
 
-  QActionGroup *theme_group = new QActionGroup(this);
+  QActionGroup *theme_group = new QActionGroup(theme_menu);
   theme_group->setExclusive(true);
 
   for (QString theme_name : theme_manager_.AvailableThemes()) {
-    QAction *action = new QAction(theme_name, this);
+    QAction *action = new QAction(theme_name, theme_group);
     action->setCheckable(true);
-
-    theme_group->addAction(action);
 
     if (action->text() == settings_.value("theme", "Dark").toString())
       action->setChecked(true);
@@ -169,11 +163,11 @@ void Application::SetUpToolsMenu() {
 
   QMenu *letter_case_menu = tools_menu->addMenu("Result letter case");
 
-  QActionGroup *letter_case_group = new QActionGroup(this);
+  QActionGroup *letter_case_group = new QActionGroup(letter_case_menu);
   letter_case_group->setExclusive(true);
 
-  QAction *lowercase_action = new QAction("Lowercase", this);
-  QAction *uppercase_action = new QAction("Uppercase", this);
+  QAction *lowercase_action = new QAction("Lowercase", letter_case_group);
+  QAction *uppercase_action = new QAction("Uppercase", letter_case_group);
 
   lowercase_action->setCheckable(true);
   uppercase_action->setCheckable(true);
@@ -181,9 +175,6 @@ void Application::SetUpToolsMenu() {
   settings_.value("lowercase", "1").toBool()
       ? lowercase_action->setChecked(true)
       : uppercase_action->setChecked(true);
-
-  letter_case_group->addAction(lowercase_action);
-  letter_case_group->addAction(uppercase_action);
 
   letter_case_menu->addAction(lowercase_action);
   letter_case_menu->addAction(uppercase_action);
@@ -201,7 +192,8 @@ void Application::SetUpToolsMenu() {
 // Sets a help options menu
 void Application::SetUpHelpMenu() {
   QMenu *help_menu = menuBar()->addMenu("Help");
-  QAction *about_action = new QAction("About Number System Converter", this);
+  QAction *about_action =
+      new QAction("About Number System Converter", help_menu);
   help_menu->setStyleSheet("font: 14px;");
   help_menu->addAction(about_action);
 
@@ -213,7 +205,7 @@ void Application::SetUpHelpMenu() {
 
 // Sets a fist layout
 void Application::CreateFromBaseSection(QVBoxLayout *base_layout) {
-  QHBoxLayout *from_base_layout = new QHBoxLayout();
+  QHBoxLayout *from_base_layout = new QHBoxLayout;
   from_base_layout->setSpacing(0);
 
   from_base_button_ = new QPushButton("Old Base: ");
@@ -238,7 +230,7 @@ void Application::CreateFromBaseSection(QVBoxLayout *base_layout) {
 
 // Sets a second layout
 void Application::CreateToBaseSection(QVBoxLayout *base_layout) {
-  QHBoxLayout *to_base_layout = new QHBoxLayout();
+  QHBoxLayout *to_base_layout = new QHBoxLayout;
   to_base_layout->setSpacing(0);
 
   to_base_button_ = new QPushButton("New Base: ");

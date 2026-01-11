@@ -13,7 +13,7 @@
 int main(int argc, char *argv[]) {
   QApplication app(argc, argv);
   app.setOrganizationName("BIBlical");
-  app.setApplicationName("Application");
+  app.setApplicationName("Number System Converter");
 
   app.setWindowIcon(QIcon(":/resources/app-icon.svg"));
 
